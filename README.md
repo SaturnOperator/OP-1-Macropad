@@ -6,4 +6,4 @@ Use your OP-1 as a macropad using this python script.
 Libraries:
 - [Mido](https://github.com/mido/mido/tree/stable)
 
-> pip install mido
+	pip install mido
