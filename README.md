@@ -3,9 +3,8 @@ Use your OP-1 as a macropad using this python script.
 
 # Installation 
 
-Libraries:
-- [Mido](https://github.com/mido/mido/tree/stable)
+This program uses the [RtMidi](https://www.music.mcgill.ca/~gary/rtmidi/) library to interface with the midi input.
 
 ```bash
-pip install mido
+pip install python-rtmidi
 ```
