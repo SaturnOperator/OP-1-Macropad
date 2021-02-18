@@ -3,7 +3,8 @@ from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtSvg import QSvgRenderer
-from PyQt5.QtCore import QXmlStreamReader
+from PyQt5.QtCore import QXmlStreamReader, pyqtSignal
+from functools import partial
 
 from consts import *
 
@@ -86,11 +87,29 @@ VECTORS[OP1_KEY20] = VECTORS[OP1_KEY1]
 VECTORS[OP1_KEY22] = VECTORS[OP1_KEY1]
 VECTORS[OP1_KEY24] = VECTORS[OP1_KEY1]
 
+class myLabel(QLabel):
+	clicked = pyqtSignal()
+	def mousePressEvent(self, QMouseEvent):
+		if QMouseEvent.button() == QtCore.Qt.LeftButton:
+			self.clicked.emit()
+			self.setProperty("btnPressed", "true")
+			self.style().unpolish(self)
+			self.style().polish(self)
+			self.update()
+
+	def mouseReleaseEvent(self, QMouseEvent):
+		if QMouseEvent.button() == QtCore.Qt.LeftButton:
+			self.clicked.emit()
+			self.setProperty("btnPressed", "false")
+			self.style().unpolish(self)
+			self.style().polish(self)
+			self.update()
+
 
 class MainWindow(QMainWindow):
 	def __init__(self):
 		super().__init__()
-		self.resize(1050, 600)
+		self.resize(950, 600)
 		#self.move(300, 300)
         #self.setWindowTitle('Icon')
         #self.setWindowIcon(QIcon('web.png'))
@@ -125,77 +144,77 @@ class MainWindow(QMainWindow):
 
 		# All the buttons on the OP-1
 		self.io = {
-			OP1_ENCODER_1: QLabel(),
-			OP1_ENCODER_2: QLabel(),
-			OP1_ENCODER_3: QLabel(),
-			OP1_ENCODER_4: QLabel(),
+			OP1_ENCODER_1: myLabel(),
+			OP1_ENCODER_2: myLabel(),
+			OP1_ENCODER_3: myLabel(),
+			OP1_ENCODER_4: myLabel(),
 
-			OP1_HELP_BUTTON: QLabel(),
-			OP1_METRONOME_BUTTON: QLabel(),
+			OP1_HELP_BUTTON: myLabel(),
+			OP1_METRONOME_BUTTON: myLabel(),
 
-			OP1_MODE_1_BUTTON: QLabel(),
-			OP1_MODE_2_BUTTON: QLabel(),
-			OP1_MODE_3_BUTTON: QLabel(),
-			OP1_MODE_4_BUTTON: QLabel(),
+			OP1_MODE_1_BUTTON: myLabel(),
+			OP1_MODE_2_BUTTON: myLabel(),
+			OP1_MODE_3_BUTTON: myLabel(),
+			OP1_MODE_4_BUTTON: myLabel(),
 
-			OP1_T1_BUTTON: QLabel(),
-			OP1_T2_BUTTON: QLabel(),
-			OP1_T3_BUTTON: QLabel(),
-			OP1_T4_BUTTON: QLabel(),
+			OP1_T1_BUTTON: myLabel(),
+			OP1_T2_BUTTON: myLabel(),
+			OP1_T3_BUTTON: myLabel(),
+			OP1_T4_BUTTON: myLabel(),
 
-			OP1_ARROW_UP_BUTTON: QLabel(),
-			OP1_ARROW_DOWN_BUTTON: QLabel(),
-			OP1_SCISSOR_BUTTON: QLabel(),
+			OP1_ARROW_UP_BUTTON: myLabel(),
+			OP1_ARROW_DOWN_BUTTON: myLabel(),
+			OP1_SCISSOR_BUTTON: myLabel(),
 
-			OP1_SS1_BUTTON: QLabel(),
-			OP1_SS2_BUTTON: QLabel(),
-			OP1_SS3_BUTTON: QLabel(),
-			OP1_SS4_BUTTON: QLabel(),
-			OP1_SS5_BUTTON: QLabel(),
-			OP1_SS6_BUTTON: QLabel(),
-			OP1_SS7_BUTTON: QLabel(),
-			OP1_SS8_BUTTON: QLabel(),
+			OP1_SS1_BUTTON: myLabel(),
+			OP1_SS2_BUTTON: myLabel(),
+			OP1_SS3_BUTTON: myLabel(),
+			OP1_SS4_BUTTON: myLabel(),
+			OP1_SS5_BUTTON: myLabel(),
+			OP1_SS6_BUTTON: myLabel(),
+			OP1_SS7_BUTTON: myLabel(),
+			OP1_SS8_BUTTON: myLabel(),
 
-			OP1_REC_BUTTON: QLabel(),
-			OP1_PLAY_BUTTON: QLabel(),
-			OP1_STOP_BUTTON: QLabel(),
+			OP1_REC_BUTTON: myLabel(),
+			OP1_PLAY_BUTTON: myLabel(),
+			OP1_STOP_BUTTON: myLabel(),
 
-			OP1_LEFT_ARROW: QLabel(),
-			OP1_RIGHT_ARROW: QLabel(),
-			OP1_SHIFT_BUTTON: QLabel(),
+			OP1_LEFT_ARROW: myLabel(),
+			OP1_RIGHT_ARROW: myLabel(),
+			OP1_SHIFT_BUTTON: myLabel(),
 
-			OP1_MICRO: QLabel(),
-			OP1_COM: QLabel(),
-			OP1_PATTERN: QLabel(),
+			OP1_MICRO: myLabel(),
+			OP1_COM: myLabel(),
+			OP1_PATTERN: myLabel(),
 
-			"SPEAKER": QLabel(),
-			"VOLUME": QLabel(),
-			"SCREEN": QLabel(),
+			"SPEAKER": myLabel(),
+			"VOLUME": myLabel(),
+			"SCREEN": myLabel(),
 
-			OP1_KEY1: QLabel(),
-			OP1_KEY2: QLabel(),
-			OP1_KEY3: QLabel(),
-			OP1_KEY4: QLabel(),
-			OP1_KEY5: QLabel(),
-			OP1_KEY6: QLabel(),
-			OP1_KEY7: QLabel(),
-			OP1_KEY8: QLabel(),
-			OP1_KEY9: QLabel(),
-			OP1_KEY10: QLabel(),
-			OP1_KEY11: QLabel(),
-			OP1_KEY12: QLabel(),
-			OP1_KEY13: QLabel(),
-			OP1_KEY14: QLabel(),
-			OP1_KEY15: QLabel(),
-			OP1_KEY16: QLabel(),
-			OP1_KEY17: QLabel(),
-			OP1_KEY18: QLabel(),
-			OP1_KEY19: QLabel(),
-			OP1_KEY20: QLabel(),
-			OP1_KEY21: QLabel(),
-			OP1_KEY22: QLabel(),
-			OP1_KEY23: QLabel(),
-			OP1_KEY24: QLabel()
+			OP1_KEY1: myLabel(),
+			OP1_KEY2: myLabel(),
+			OP1_KEY3: myLabel(),
+			OP1_KEY4: myLabel(),
+			OP1_KEY5: myLabel(),
+			OP1_KEY6: myLabel(),
+			OP1_KEY7: myLabel(),
+			OP1_KEY8: myLabel(),
+			OP1_KEY9: myLabel(),
+			OP1_KEY10: myLabel(),
+			OP1_KEY11: myLabel(),
+			OP1_KEY12: myLabel(),
+			OP1_KEY13: myLabel(),
+			OP1_KEY14: myLabel(),
+			OP1_KEY15: myLabel(),
+			OP1_KEY16: myLabel(),
+			OP1_KEY17: myLabel(),
+			OP1_KEY18: myLabel(),
+			OP1_KEY19: myLabel(),
+			OP1_KEY20: myLabel(),
+			OP1_KEY21: myLabel(),
+			OP1_KEY22: myLabel(),
+			OP1_KEY23: myLabel(),
+			OP1_KEY24: myLabel()
 		}
 
 		#buttonStyle = 'font-size:5px;width:100%%; height:100%%; background-color: rgb(%d, %d, %d);'
@@ -274,18 +293,24 @@ class MainWindow(QMainWindow):
 		self.renderOP1()
 
 	def renderOP1(self):
-		nightMode = 0
+		nightMode = 1
 
 		# Set style for background
 		self.setStyleSheet("background-color:%s;" % ("#333333" if nightMode else "#EBEBEB"))
 		self.op1View.setStyleSheet("background-color: %s; border-radius: 5px;" % ("#222222" if nightMode else "#BEBEBE")) 
 
-		# Apply stylesheet to all the buttons
+		# Stylesheet for all the buttons
 		buttonStyle = "*{border-radius: 5px; background-color: %s; font-size:1px;}\n" % ("#333333" if nightMode else "#EBEBEB")
 		buttonStyle += "*:!pressed:hover{border: 1px solid %s;}" % ("#444444" if nightMode else "#AAAAAA")
+		buttonStyle += "*[btnPressed=\"true\"]{background-color: %s;}" % ("#444444" if nightMode else "#AAAAAA")
 		
 		for i in self.io:
+			# Handle mouse press events
+			self.io[i].clicked.connect(partial(self.clickHandler, i))
+
+			# Set CSS for each button
 			self.io[i].setStyleSheet(buttonStyle)
+			self.io[i].setProperty("btnPressed", "false")
 
 			if(i in [102, 109, 114, 121]):
 				whitespace = "&nbsp;"*75
@@ -298,11 +323,15 @@ class MainWindow(QMainWindow):
 			else:
 				whitespace = ""
 				self.io[i].setAlignment(QtCore.Qt.AlignCenter)
-				
+			
+			# Set icon from SVG data for each Icon
 			try:
 				self.io[i].setText(whitespace + '<img src=\'data:image/svg+xml;utf8,%s\'>' % VECTORS[i].get(nightMode))
 			except KeyError:
 				pass
+
+	def clickHandler(self, event=None):
+		pass
 
 if(__name__ == "__main__"):
 	app = QtWidgets.QApplication(sys.argv)
