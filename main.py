@@ -3,12 +3,12 @@ from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtSvg import QSvgRenderer
-from PyQt5.QtCore import QXmlStreamReader, pyqtSignal
+from PyQt5.QtCore import QXmlStreamReader, pyqtSignal, QObject
 from functools import partial
 
-from consts import *
+from rtmidi import MidiIn as rtMidiIn
 
-import random
+from consts import *
 
 class SVG:
 	def __init__(self, code):
@@ -87,37 +87,127 @@ VECTORS[OP1_KEY20] = VECTORS[OP1_KEY1]
 VECTORS[OP1_KEY22] = VECTORS[OP1_KEY1]
 VECTORS[OP1_KEY24] = VECTORS[OP1_KEY1]
 
-class myLabel(QLabel):
+class OP1Button(QLabel):
+	state = False
 	clicked = pyqtSignal()
+
 	def mousePressEvent(self, QMouseEvent):
 		if QMouseEvent.button() == QtCore.Qt.LeftButton:
-			self.clicked.emit()
-			self.setProperty("btnPressed", "true")
-			self.style().unpolish(self)
-			self.style().polish(self)
-			self.update()
+			#self.clicked.emit()
+			self.toggleState()
 
 	def mouseReleaseEvent(self, QMouseEvent):
 		if QMouseEvent.button() == QtCore.Qt.LeftButton:
 			self.clicked.emit()
-			self.setProperty("btnPressed", "false")
-			self.style().unpolish(self)
-			self.style().polish(self)
-			self.update()
+			self.toggleState()
 
+	def toggleState(self):
+		# Change state to make the button pushed/unpushed
+		if(self.state):
+			self.setProperty("btnPressed", "false")
+		else:
+			self.setProperty("btnPressed", "true")
+
+		self.state = not self.state 
+		self.style().unpolish(self)
+		self.style().polish(self)
+		self.update()
+
+
+class QMidiListener(QObject):
+	
+	_midiStream = pyqtSignal(tuple, name="midiStream")
+
+	def __init__(self, QMidiStatus=None):
+		super(QMidiListener, self).__init__()
+		self.connected = False
+		self.processor = None
+
+		# Pass along an class to act as an indicator
+		# In this case it's text line edit screen
+		self.status = QMidiStatus
+
+		# Interface with the MIDI library
+		# Attempt to connect
+		self.midi = rtMidiIn()
+		self.connectMidi()
+		return
+
+	def find_port(self):
+		# Find the port that the OP-1 is on
+		try:
+			self.port = self.midi.get_ports().index('OP-1 Midi Device')
+			self.out("Found %s on port %d" % (self.midi.get_port_name(self.port), self.port))
+			return 1
+		except ValueError:
+			self.out("Could not find OP-1")
+			return 0
+
+	def connectMidi(self):
+		# Connect to midi port after finding it
+		# Start a callback process
+		try:
+			if(self.find_port()):
+				# rtmidi._rtmidi.InvalidUseError: <rtmidi._rtmidi.MidiIn object at 0x7ff9e83391d0> already opened input port 0.
+				self.midi.open_port(self.port)
+				self.out("Connected to %s" % self.midi.get_port_name(self.port))
+				self._midiStream.connect(self._midi_received_signal)
+				self.midi.set_callback(self._midi_background_interface)
+				self.connected = True
+		except AttributeError:
+			self.out("No MIDI device found")
+	
+	def connectProcessor(self, processor):
+		# Connect external function that will handle the events
+		self.processor = processor
+
+	def _midi_received_signal(self, data, other):
+		self._midiStream.emit(data)
+		return
+
+	@QtCore.pyqtSlot(tuple)
+	def _midi_background_interface(self, data, other):
+		# Send the midi data to the connect processor 
+		msg, delta_time = data		
+		if(self.processor != None):
+			self.processor(msg)
+
+	def closeMidi(self):
+		# Close midi connection
+		self.connected = False
+		self.midi.cancel_callback()
+		try:
+			self.midi.close_port()
+			self.out("Closed connection on port %d" % self.port)
+		except AttributeError:
+			pass
+
+	def out(self, string):
+		# Output message to status/debug screen
+		self.status.append(string)
+		return "%s\n" % string
+
+	def toggle(self):
+		# Toggle connection state
+		if(self.connected):
+			self.closeMidi()
+		else:
+			self.connectMidi()
 
 class MainWindow(QMainWindow):
 	def __init__(self):
 		super().__init__()
-		self.resize(950, 600)
-		#self.move(300, 300)
-        #self.setWindowTitle('Icon')
-        #self.setWindowIcon(QIcon('web.png'))
-		self.setWindowTitle('OP-1 Macropad')
+		self.nightMode = 1
 		self.initUI()
+		self.midi = QMidiListener(self.io["SCREEN"])
+		self.midi.connectProcessor(self.midiEventHandler)
 		self.show()
 
 	def initUI(self):
+		self.setFixedWidth(950)
+		self.setFixedHeight(600)
+		#self.setWindowIcon(QIcon('web.png'))
+		self.setWindowTitle('OP-1 Macropad')
 		self.setLayout(QVBoxLayout())
 		main = QWidget()
 		self.layout().addWidget(main)
@@ -126,16 +216,10 @@ class MainWindow(QMainWindow):
 		main.setFixedHeight(self.height())
 		main.layout().setAlignment(QtCore.Qt.AlignCenter)
 
-		
-		#op1Device = QWidget()
-		#op1Device.setFixedWidth(1025)
-		#op1Device.setFixedHeight(375)
-		#op1Device.setStyleSheet("width:100%;height:100%;background-color: #EBEBEB; border-radius: 10px;")
-
 		# Create OP-1 View
 		self.op1View = QWidget()
 		main.layout().addWidget(self.op1View)
-		self.op1View.setFixedWidth(900)
+		self.op1View.setFixedWidth(880)
 		self.op1View.setFixedHeight(int(self.op1View.width() * (6/17)))
 
 		self.op1View.setLayout(QGridLayout())
@@ -144,77 +228,77 @@ class MainWindow(QMainWindow):
 
 		# All the buttons on the OP-1
 		self.io = {
-			OP1_ENCODER_1: myLabel(),
-			OP1_ENCODER_2: myLabel(),
-			OP1_ENCODER_3: myLabel(),
-			OP1_ENCODER_4: myLabel(),
+			OP1_ENCODER_1: OP1Button(),
+			OP1_ENCODER_2: OP1Button(),
+			OP1_ENCODER_3: OP1Button(),
+			OP1_ENCODER_4: OP1Button(),
 
-			OP1_HELP_BUTTON: myLabel(),
-			OP1_METRONOME_BUTTON: myLabel(),
+			OP1_HELP_BUTTON: OP1Button(),
+			OP1_METRONOME_BUTTON: OP1Button(),
 
-			OP1_MODE_1_BUTTON: myLabel(),
-			OP1_MODE_2_BUTTON: myLabel(),
-			OP1_MODE_3_BUTTON: myLabel(),
-			OP1_MODE_4_BUTTON: myLabel(),
+			OP1_MODE_1_BUTTON: OP1Button(),
+			OP1_MODE_2_BUTTON: OP1Button(),
+			OP1_MODE_3_BUTTON: OP1Button(),
+			OP1_MODE_4_BUTTON: OP1Button(),
 
-			OP1_T1_BUTTON: myLabel(),
-			OP1_T2_BUTTON: myLabel(),
-			OP1_T3_BUTTON: myLabel(),
-			OP1_T4_BUTTON: myLabel(),
+			OP1_T1_BUTTON: OP1Button(),
+			OP1_T2_BUTTON: OP1Button(),
+			OP1_T3_BUTTON: OP1Button(),
+			OP1_T4_BUTTON: OP1Button(),
 
-			OP1_ARROW_UP_BUTTON: myLabel(),
-			OP1_ARROW_DOWN_BUTTON: myLabel(),
-			OP1_SCISSOR_BUTTON: myLabel(),
+			OP1_ARROW_UP_BUTTON: OP1Button(),
+			OP1_ARROW_DOWN_BUTTON: OP1Button(),
+			OP1_SCISSOR_BUTTON: OP1Button(),
 
-			OP1_SS1_BUTTON: myLabel(),
-			OP1_SS2_BUTTON: myLabel(),
-			OP1_SS3_BUTTON: myLabel(),
-			OP1_SS4_BUTTON: myLabel(),
-			OP1_SS5_BUTTON: myLabel(),
-			OP1_SS6_BUTTON: myLabel(),
-			OP1_SS7_BUTTON: myLabel(),
-			OP1_SS8_BUTTON: myLabel(),
+			OP1_SS1_BUTTON: OP1Button(),
+			OP1_SS2_BUTTON: OP1Button(),
+			OP1_SS3_BUTTON: OP1Button(),
+			OP1_SS4_BUTTON: OP1Button(),
+			OP1_SS5_BUTTON: OP1Button(),
+			OP1_SS6_BUTTON: OP1Button(),
+			OP1_SS7_BUTTON: OP1Button(),
+			OP1_SS8_BUTTON: OP1Button(),
 
-			OP1_REC_BUTTON: myLabel(),
-			OP1_PLAY_BUTTON: myLabel(),
-			OP1_STOP_BUTTON: myLabel(),
+			OP1_REC_BUTTON: OP1Button(),
+			OP1_PLAY_BUTTON: OP1Button(),
+			OP1_STOP_BUTTON: OP1Button(),
 
-			OP1_LEFT_ARROW: myLabel(),
-			OP1_RIGHT_ARROW: myLabel(),
-			OP1_SHIFT_BUTTON: myLabel(),
+			OP1_LEFT_ARROW: OP1Button(),
+			OP1_RIGHT_ARROW: OP1Button(),
+			OP1_SHIFT_BUTTON: OP1Button(),
 
-			OP1_MICRO: myLabel(),
-			OP1_COM: myLabel(),
-			OP1_PATTERN: myLabel(),
+			OP1_MICRO: OP1Button(),
+			OP1_COM: OP1Button(),
+			OP1_PATTERN: OP1Button(),
 
-			"SPEAKER": myLabel(),
-			"VOLUME": myLabel(),
-			"SCREEN": myLabel(),
+			"SPEAKER": OP1Button(),
+			"VOLUME": OP1Button(),
+			"SCREEN": QTextEdit(),
 
-			OP1_KEY1: myLabel(),
-			OP1_KEY2: myLabel(),
-			OP1_KEY3: myLabel(),
-			OP1_KEY4: myLabel(),
-			OP1_KEY5: myLabel(),
-			OP1_KEY6: myLabel(),
-			OP1_KEY7: myLabel(),
-			OP1_KEY8: myLabel(),
-			OP1_KEY9: myLabel(),
-			OP1_KEY10: myLabel(),
-			OP1_KEY11: myLabel(),
-			OP1_KEY12: myLabel(),
-			OP1_KEY13: myLabel(),
-			OP1_KEY14: myLabel(),
-			OP1_KEY15: myLabel(),
-			OP1_KEY16: myLabel(),
-			OP1_KEY17: myLabel(),
-			OP1_KEY18: myLabel(),
-			OP1_KEY19: myLabel(),
-			OP1_KEY20: myLabel(),
-			OP1_KEY21: myLabel(),
-			OP1_KEY22: myLabel(),
-			OP1_KEY23: myLabel(),
-			OP1_KEY24: myLabel()
+			OP1_KEY1: OP1Button(),
+			OP1_KEY2: OP1Button(),
+			OP1_KEY3: OP1Button(),
+			OP1_KEY4: OP1Button(),
+			OP1_KEY5: OP1Button(),
+			OP1_KEY6: OP1Button(),
+			OP1_KEY7: OP1Button(),
+			OP1_KEY8: OP1Button(),
+			OP1_KEY9: OP1Button(),
+			OP1_KEY10: OP1Button(),
+			OP1_KEY11: OP1Button(),
+			OP1_KEY12: OP1Button(),
+			OP1_KEY13: OP1Button(),
+			OP1_KEY14: OP1Button(),
+			OP1_KEY15: OP1Button(),
+			OP1_KEY16: OP1Button(),
+			OP1_KEY17: OP1Button(),
+			OP1_KEY18: OP1Button(),
+			OP1_KEY19: OP1Button(),
+			OP1_KEY20: OP1Button(),
+			OP1_KEY21: OP1Button(),
+			OP1_KEY22: OP1Button(),
+			OP1_KEY23: OP1Button(),
+			OP1_KEY24: OP1Button()
 		}
 
 		#buttonStyle = 'font-size:5px;width:100%%; height:100%%; background-color: rgb(%d, %d, %d);'
@@ -290,48 +374,70 @@ class MainWindow(QMainWindow):
 		grid.addWidget(self.io[OP1_RIGHT_ARROW], 10, 2, 2, 2)
 		grid.addWidget(self.io[OP1_SHIFT_BUTTON], 10, 4, 2, 2)
 
+		# Add mouse press event listener
+		for i in self.io:
+			if(i != "SCREEN"):
+				self.io[i].clicked.connect(partial(self.clickHandler, i))
+
+
 		self.renderOP1()
 
 	def renderOP1(self):
-		nightMode = 1
 
 		# Set style for background
-		self.setStyleSheet("background-color:%s;" % ("#333333" if nightMode else "#EBEBEB"))
-		self.op1View.setStyleSheet("background-color: %s; border-radius: 5px;" % ("#222222" if nightMode else "#BEBEBE")) 
+		self.setStyleSheet("background-color:%s;" % ("#333333" if self.nightMode else "#EBEBEB"))
+		self.op1View.setStyleSheet("background-color: %s; border-radius: 5px;" % ("#222222" if self.nightMode else "#BEBEBE")) 
 
 		# Stylesheet for all the buttons
-		buttonStyle = "*{border-radius: 5px; background-color: %s; font-size:1px;}\n" % ("#333333" if nightMode else "#EBEBEB")
-		buttonStyle += "*:!pressed:hover{border: 1px solid %s;}" % ("#444444" if nightMode else "#AAAAAA")
-		buttonStyle += "*[btnPressed=\"true\"]{background-color: %s;}" % ("#444444" if nightMode else "#AAAAAA")
-		
+		buttonStyle = "*{border-radius: 5px; background-color: %s; font-size:1px;}" % ("#333333" if self.nightMode else "#EBEBEB")
+		buttonStyle += "*:!pressed:hover{border: 1px solid %s;}" % ("#444444" if self.nightMode else "#AAAAAA")
+		buttonStyle += "*[btnPressed=\"true\"]{background-color: %s;}" % ("#444444" if self.nightMode else "#AAAAAA")
+
 		for i in self.io:
-			# Handle mouse press events
-			self.io[i].clicked.connect(partial(self.clickHandler, i))
+			if(i != "SCREEN"):
+				# Set CSS for each button
+				self.io[i].setStyleSheet(buttonStyle)
+				self.io[i].setProperty("btnPressed", "false")
 
-			# Set CSS for each button
-			self.io[i].setStyleSheet(buttonStyle)
-			self.io[i].setProperty("btnPressed", "false")
-
-			if(i in [102, 109, 114, 121]):
-				whitespace = "&nbsp;"*75
-				self.io[i].setAlignment(QtCore.Qt.AlignCenter)
-			elif(i in [106, 111, 118, 123, "VOLUME"]):
-				whitespace = "&nbsp;"*25
-			elif(i=="SCREEN"):
-				whitespace = ""
-				self.io[i].setStyleSheet("background-color:black;")
+				if(i in [102, 109, 114, 121]):
+					whitespace = "&nbsp;"*75
+					self.io[i].setAlignment(QtCore.Qt.AlignCenter)
+				elif(i in [106, 111, 118, 123, "VOLUME"]):
+					whitespace = "&nbsp;"*25
+				else:
+					whitespace = ""
+					self.io[i].setAlignment(QtCore.Qt.AlignCenter)
+				
+				# Set icon from SVG data for each Icon
+				try:
+					self.io[i].setText(whitespace + '<img src=\'data:image/svg+xml;utf8,%s\'>' % VECTORS[i].get(self.nightMode))
+				except KeyError:
+					pass
 			else:
-				whitespace = ""
-				self.io[i].setAlignment(QtCore.Qt.AlignCenter)
-			
-			# Set icon from SVG data for each Icon
-			try:
-				self.io[i].setText(whitespace + '<img src=\'data:image/svg+xml;utf8,%s\'>' % VECTORS[i].get(nightMode))
-			except KeyError:
-				pass
+				self.io[i].setFixedHeight(100)
+				self.io[i].setFixedWidth(204)
+				self.io[i].setStyleSheet("*{color:white;background-color:black;font-family:Courier;font-size:9px;}")
+				sb = QScrollBar()
+				self.io[i].setVerticalScrollBar(sb)
+				self.io[i].setReadOnly(1)
 
 	def clickHandler(self, event=None):
-		pass
+		if(event == "VOLUME"):
+			self.nightMode = not self.nightMode
+			self.renderOP1()
+		if(event == "SPEAKER"):
+			self.midi.toggle()
+
+	def closeEvent(self, event=None):
+		self.midi.closeMidi()
+		self.deleteLater()
+
+	def midiEventHandler(self, data):
+		# Handle the incoming hex midi data
+		mode, button, value = data
+		if(mode == 0xb0):
+			print(button)
+			#self.io[button].toggleState()
 
 if(__name__ == "__main__"):
 	app = QtWidgets.QApplication(sys.argv)
