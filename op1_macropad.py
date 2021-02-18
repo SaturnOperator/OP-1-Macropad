@@ -28,10 +28,5 @@ class OP1(rtMidiIn):
 		print("Closed connection on port %d" % self.port)
 		self.close_port()
 
-op1 = OP1()
-op1.query()
-op1.close()
-exit()
-
 
 
