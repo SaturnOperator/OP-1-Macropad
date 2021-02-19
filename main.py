@@ -13,19 +13,22 @@ from consts import *
 import faulthandler; faulthandler.enable()
 
 class SVG:
-	def __init__(self, code):
+	def __init__(self, code, inverted=False):
 		self.code = code
 		self.args = self.code.count("%s")
+		self.inverted = inverted
 
 	def getArgs(self, text):
 		return tuple([text for i in range(self.args)])
 
 	def get(self, night=False):
+		if(self.inverted):
+			night = not night
 		return self.code % self.getArgs("white" if night else "black")
 
 VECTORS = {
-	"VOLUME": SVG('<svg><g id="VOLUME"><path d="M16.875,0c9.314,0 16.875,7.561 16.875,16.875c0,9.314 -7.561,16.875 -16.875,16.875c-9.314,0 -16.875,-7.561 -16.875,-16.875c0,-9.314 7.561,-16.875 16.875,-16.875Zm-6.098,18.826c2.289,0 4.147,1.858 4.147,4.147c0,2.289 -1.858,4.147 -4.147,4.147c-2.289,0 -4.147,-1.858 -4.147,-4.147c0,-2.289 1.858,-4.147 4.147,-4.147Z" style="fill:white;"/></g></svg>'),
-	"SPEAKER": SVG('<svg><g id="OP1_KEY4"><circle r="40" style="fill:black;fill-opacity:0.05;"/></g></svg>'),
+	"VOLUME": SVG('<svg><g id="VOLUME"><path d="M16.875,0c9.314,0 16.875,7.561 16.875,16.875c0,9.314 -7.561,16.875 -16.875,16.875c-9.314,0 -16.875,-7.561 -16.875,-16.875c0,-9.314 7.561,-16.875 16.875,-16.875Zm-6.098,18.826c2.289,0 4.147,1.858 4.147,4.147c0,2.289 -1.858,4.147 -4.147,4.147c-2.289,0 -4.147,-1.858 -4.147,-4.147c0,-2.289 1.858,-4.147 4.147,-4.147Z" style="fill:%s;fill-opacity:0.5;"/></g></svg>', 1),
+	"SPEAKER": SVG('<svg><g id="OP1_KEY4"><circle r="40" style="fill:%s;fill-opacity:0.15;"/></g></svg>'),
 	OP1_ARROW_DOWN_BUTTON: SVG('<svg><g id="OP1_ARROW_DOWN_BUTTON"><circle cx="16.875" cy="16.875" r="16.875" style="fill:%s;fill-opacity:0.05;"/><g><path d="M11.136,18.027l11.478,0m-5.739,-2.318l0,-7.726m5.408,2.87l-5.408,4.856l-5.298,-4.856" style="fill:none;fill-rule:nonzero;stroke:rgb(241,89,36);stroke-width:0.75px;"/><path d="M18.31,24.539c-0.111,0.772 -0.773,1.324 -1.545,1.214c-0.773,-0.11 -1.325,-0.773 -1.214,-1.435l0,-0.11c0.11,-0.773 0.772,-1.325 1.545,-1.214c0.772,0.11 1.324,0.772 1.214,1.545Z" style="fill:none;stroke:%s;stroke-width:0.75px;"/></g></g></svg>'),
 	OP1_ARROW_UP_BUTTON: SVG('<svg><g id="OP1_ARROW_UP_BUTTON"><circle cx="16.875" cy="16.875" r="16.875" style="fill:%s;fill-opacity:0.05;"/><g><path d="M10.866,16.901l11.478,0m-5.739,-10.044l0,7.836m-5.408,-2.98l5.408,-4.856l5.408,4.856" style="fill:none;fill-rule:nonzero;stroke:rgb(241,89,36);stroke-width:0.75px;"/><path d="M23.448,24.185l-5.298,0l3.974,-3.752l0,5.297" style="fill:none;stroke:%s;stroke-width:0.75px;stroke-linejoin:miter;stroke-miterlimit:1.5;"/><path d="M11.086,20.433l0,5.297" style="fill:none;stroke:%s;stroke-width:0.75px;stroke-linejoin:miter;stroke-miterlimit:1.5;"/><path d="M12.852,23.302l3.974,0" style="fill:none;fill-rule:nonzero;stroke:%s;stroke-width:0.75px;"/></g></g></svg>'),
 	OP1_COM: SVG('<svg><g id="OP1_COM"><circle cx="16.875" cy="16.875" r="16.875" style="fill:%s;fill-opacity:0.05;"/><path d="M19.469,26.257l0,-5.298l0.22,0l1.215,3.201l0.22,0l1.214,-3.201l0.221,0l0,5.298" style="fill:none;fill-rule:nonzero;stroke:%s;stroke-width:0.75px;"/><path d="M13.84,24.822c0,0.772 -0.662,1.324 -1.325,1.324c-0.772,0 -1.324,-0.662 -1.324,-1.324l0,-2.76c0,-0.772 0.662,-1.324 1.324,-1.324c0.773,0 1.325,0.662 1.325,1.324" style="fill:none;fill-rule:nonzero;stroke:%s;stroke-width:0.75px;"/><path d="M15.054,22.283l0,2.428c0,0.883 0.662,1.546 1.545,1.546c0.883,0 1.545,-0.663 1.545,-1.546l0,-2.428c0,-0.883 -0.662,-1.545 -1.545,-1.545c-0.883,0 -1.545,0.662 -1.545,1.545Z" style="fill:none;fill-rule:nonzero;stroke:%s;stroke-width:0.75px;"/><circle cx="16.709" cy="12.239" r="4.746" style="fill:none;stroke:%s;stroke-width:0.75px;"/><path d="M15.275,12.239c0,-0.772 0.662,-1.434 1.434,-1.434c0.773,0 1.435,0.662 1.435,1.434c0,0.773 -0.662,1.435 -1.435,1.435c-0.772,0 -1.434,-0.662 -1.434,-1.435Z" style="fill:none;stroke:%s;stroke-width:0.75px;"/></g></svg>'),
@@ -35,7 +38,7 @@ VECTORS = {
 	OP1_ENCODER_4: SVG('<svg><g id="OP1_ENCODER_4"><circle cx="24" cy="24" r="24" style="fill:%s;fill-opacity:0.05;"/><circle cx="24" cy="24" r="16.875" style="fill:rgb(241,89,36);"/><path d="M19.63,33.126l0,-18.252c0,-2.443 1.928,-4.371 4.37,-4.371c2.442,0 4.37,1.928 4.37,4.371l0,18.252c0,2.443 -1.928,4.371 -4.37,4.371c-2.442,0 -4.37,-1.928 -4.37,-4.371Z" style="fill-opacity:0.2;"/></g></svg>'),
 	OP1_HELP_BUTTON: SVG('<svg><g id="OP1_HELP_BUTTON"><circle cx="16.875" cy="16.875" r="16.875" style="fill:%s;fill-opacity:0.05;"/><path d="M14.061,19.524c-1.877,0 -3.532,-1.545 -3.532,-3.532m9.271,3.532c1.876,0 3.311,-1.545 3.311,-3.532m0.004,0c0,-1.876 -1.439,-3.422 -3.426,-3.422m-5.628,0c-1.877,0 -3.532,1.546 -3.532,3.532m3.532,-3.532l5.628,0m-5.628,6.954l2.759,0m0.11,0l0,1.766m0,0l1.877,-1.766m0.993,0l-1.104,0" style="fill:none;fill-rule:nonzero;stroke:%s;stroke-width:0.75px;"/></g></svg>'),
 	OP1_KEY1: SVG('<svg><g id="OP1_KEY1"><path d="M0,16.766c0.059,-9.263 7.598,-16.766 16.875,-16.766c9.314,0 16.875,7.561 16.875,16.875l0,48c0,9.314 -7.561,16.875 -16.875,16.875c-9.314,0 -16.875,-7.561 -16.875,-16.875l0,-48l0,-0.109Z" style="fill:%s;fill-opacity:0.05;"/></g></svg>'),
-	OP1_KEY4: SVG('<svg><g id="OP1_KEY4"><circle cx="16.875" cy="16.875" r="16.875" style="fill:black;fill-opacity:0.5;"/></g></svg>'),
+	OP1_KEY4: SVG('<svg><g id="OP1_KEY4"><circle cx="16.875" cy="16.875" r="16.875" style="fill:black;fill-opacity:0.7;"/></g></svg>'),
 	OP1_LEFT_ARROW: SVG('<svg><g id="OP1_LEFT_ARROW"><circle cx="16.875" cy="16.875" r="16.875" style="fill:%s;fill-opacity:0.05;"/><path d="M20.186,22.338l-6.733,-5.518l6.844,-5.408" style="fill:none;stroke:%s;stroke-width:0.75px;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:1.5;"/></g></svg>'),
 	OP1_METRONOME_BUTTON: SVG('<svg><g id="OP1_METRONOME_BUTTON"><circle cx="16.875" cy="16.875" r="16.875" style="fill:%s;fill-opacity:0.05;"/><g><path d="M21.014,15.343c-0.839,0 -1.559,-0.719 -1.559,-1.558c0,-0.84 0.72,-1.559 1.559,-1.559c0.839,0 1.559,0.719 1.559,1.559c0,0.959 -0.72,1.558 -1.559,1.558Z" style="fill:%s;"/><path d="M11.301,21.952l3.422,-10.154l1.214,0l3.532,10.154l-8.168,0Z" style="fill:none;stroke:%s;stroke-width:0.75px;stroke-linejoin:miter;stroke-miterlimit:1.5;"/><path d="M14.943,20.297l5.078,-5.409" style="fill:none;stroke:%s;stroke-width:0.75px;stroke-linejoin:miter;stroke-miterlimit:1.5;"/></g></g></svg>'),
 	OP1_MICRO: SVG('<svg><g id="OP1_MICRO"><circle cx="16.875" cy="16.875" r="16.875" style="fill:%s;fill-opacity:0.05;"/><path d="M19.193,17.041c-0.331,0 -0.662,-0.111 -0.994,-0.221l-4.635,4.635l-1.214,-1.214l4.635,-4.635c-0.11,-0.331 -0.22,-0.663 -0.22,-0.994c0,-1.324 1.103,-2.317 2.317,-2.317c1.215,0 2.318,1.103 2.318,2.317c0,1.214 -0.883,2.429 -2.207,2.429Z" style="fill:rgb(241,89,36);"/></g></svg>'),
@@ -92,6 +95,7 @@ VECTORS[OP1_KEY24] = VECTORS[OP1_KEY1]
 class OP1Button(QLabel):
 	state = False
 	clicked = pyqtSignal()
+	rotation = None
 
 	def mousePressEvent(self, QMouseEvent):
 		if QMouseEvent.button() == QtCore.Qt.LeftButton:
@@ -120,6 +124,12 @@ class OP1Button(QLabel):
 		self.style().polish(self)
 		self.update()
 
+	def rotate(self, deg):
+		if(self.rotation is None):
+			self.rotation = 0
+			self.vector = self.text().replace("<svg>", "<svg %s>")
+		self.rotation += deg 
+		self.setText((self.vector % ('transform="rotate(%d)"' % self.rotation)))
 
 class QMidiListener(QObject):
 	
@@ -436,7 +446,10 @@ class MainWindow(QMainWindow):
 			self.midi.toggle()
 
 	def closeEvent(self, event=None):
-		self.midi.closeMidi()
+		try:
+			self.midi.closeMidi()
+		except:
+			pass
 		self.deleteLater()
 
 	def midiEventHandler(self, data):
@@ -444,8 +457,11 @@ class MainWindow(QMainWindow):
 		mode, button, value = data[0]
 
 		# Encoder turn
-		if(mode == 0xb0 and button >= 0x1 and  button <= 0x4):
-			self.io[button].toggleState()
+		if(mode == 0xb0 and button >= 0x1 and  button <= 0x4):			
+			if(value == 0x1):
+				self.io[button].rotate(10)
+			elif(value == 0x7f):
+				self.io[button].rotate(-10)
 		# If it's an encoder press
 		elif(mode == 0xb0 and button >= 0x40 and  button <= 0x43):
 			self.io[button-0x3F].toggleState()
