@@ -10,6 +10,8 @@ from rtmidi import MidiIn as rtMidiIn
 
 from consts import *
 
+import faulthandler; faulthandler.enable()
+
 class SVG:
 	def __init__(self, code):
 		self.code = code
@@ -94,21 +96,26 @@ class OP1Button(QLabel):
 	def mousePressEvent(self, QMouseEvent):
 		if QMouseEvent.button() == QtCore.Qt.LeftButton:
 			#self.clicked.emit()
-			self.toggleState()
+			self.toggleState(1)
 
 	def mouseReleaseEvent(self, QMouseEvent):
 		if QMouseEvent.button() == QtCore.Qt.LeftButton:
 			self.clicked.emit()
-			self.toggleState()
+			self.toggleState(0)
 
-	def toggleState(self):
+	def toggleState(self, state=None):
 		# Change state to make the button pushed/unpushed
 		if(self.state):
 			self.setProperty("btnPressed", "false")
 		else:
 			self.setProperty("btnPressed", "true")
 
-		self.state = not self.state 
+		# Forces the next state in case state toggle is inverted
+		if((state is not None) and ((state == 1) or (state == 0))):
+			self.state = state
+		else:
+			self.state = not self.state 
+
 		self.style().unpolish(self)
 		self.style().polish(self)
 		self.update()
@@ -151,8 +158,8 @@ class QMidiListener(QObject):
 				# rtmidi._rtmidi.InvalidUseError: <rtmidi._rtmidi.MidiIn object at 0x7ff9e83391d0> already opened input port 0.
 				self.midi.open_port(self.port)
 				self.out("Connected to %s" % self.midi.get_port_name(self.port))
-				self._midiStream.connect(self._midi_received_signal)
-				self.midi.set_callback(self._midi_background_interface)
+				self._midiStream.connect(self._midi_background_interface)
+				self.midi.set_callback(self._midi_received_signal)
 				self.connected = True
 		except AttributeError:
 			self.out("No MIDI device found")
@@ -161,12 +168,12 @@ class QMidiListener(QObject):
 		# Connect external function that will handle the events
 		self.processor = processor
 
-	def _midi_received_signal(self, data, other):
+	def _midi_received_signal(self, data, other=None):
 		self._midiStream.emit(data)
 		return
 
 	@QtCore.pyqtSlot(tuple)
-	def _midi_background_interface(self, data, other):
+	def _midi_background_interface(self, data, other=None):
 		# Send the midi data to the connect processor 
 		msg, delta_time = data		
 		if(self.processor != None):
@@ -200,7 +207,7 @@ class MainWindow(QMainWindow):
 		self.nightMode = 1
 		self.initUI()
 		self.midi = QMidiListener(self.io["SCREEN"])
-		self.midi.connectProcessor(self.midiEventHandler)
+		self.midi._midiStream.connect(self.midiEventHandler)
 		self.show()
 
 	def initUI(self):
@@ -399,10 +406,10 @@ class MainWindow(QMainWindow):
 				self.io[i].setStyleSheet(buttonStyle)
 				self.io[i].setProperty("btnPressed", "false")
 
-				if(i in [102, 109, 114, 121]):
+				if(i in [54, 61, 66, 73]):
 					whitespace = "&nbsp;"*75
 					self.io[i].setAlignment(QtCore.Qt.AlignCenter)
-				elif(i in [106, 111, 118, 123, "VOLUME"]):
+				elif(i in [58, 63, 70, 75, "VOLUME"]):
 					whitespace = "&nbsp;"*25
 				else:
 					whitespace = ""
@@ -433,11 +440,21 @@ class MainWindow(QMainWindow):
 		self.deleteLater()
 
 	def midiEventHandler(self, data):
-		# Handle the incoming hex midi data
-		mode, button, value = data
-		if(mode == 0xb0):
-			print(button)
-			#self.io[button].toggleState()
+		#Handle the incoming hex midi data
+		mode, button, value = data[0]
+
+		# Encoder turn
+		if(mode == 0xb0 and button >= 0x1 and  button <= 0x4):
+			self.io[button].toggleState()
+		# If it's an encoder press
+		elif(mode == 0xb0 and button >= 0x40 and  button <= 0x43):
+			self.io[button-0x3F].toggleState()
+		# Button press
+		elif(mode == 0xb0):
+			self.io[button].toggleState()
+		# Keyboard key press
+		elif(mode == 0x90 or mode == 0x80):
+			self.io[button].toggleState()
 
 if(__name__ == "__main__"):
 	app = QtWidgets.QApplication(sys.argv)

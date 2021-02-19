@@ -3,7 +3,7 @@ Use your OP-1 as a macropad using this python script.
 
 # Installation 
 
-This program runs on Python3 and uses [RtMidi](https://www.music.mcgill.ca/~gary/rtmidi/), a library that interfaces with midi IO and [Qt 5.x](https://doc.qt.io/qt-5/) library for the GUI.
+This program runs on Python3 and uses two libraries, [RtMidi](https://www.music.mcgill.ca/~gary/rtmidi/) to interfaces with midi IO and [Qt 5](https://doc.qt.io/qt-5/) which is a GUI framework.
 
 ```bash
 pip install python-rtmidi
