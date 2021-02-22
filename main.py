@@ -676,12 +676,12 @@ class MainWindow(QMainWindow):
 				self.io["SCREEN"].append("Mode 4")
 				self.mode = OP1_MODE_4_BUTTON
 
-		if(self.mode == OP1_MODE_2_BUTTON):
-			self.pHue.processCommand(mode, button, value)
-
 		# Keyboard key press
 		elif(mode == 0x90 or mode == 0x80):
 			self.io[button].toggleState()
+
+		if(self.mode == OP1_MODE_2_BUTTON):
+			self.pHue.processCommand(mode, button, value)
 
 if(__name__ == "__main__"):
 	app = QtWidgets.QApplication(sys.argv)
