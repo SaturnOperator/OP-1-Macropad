@@ -1,16 +1,26 @@
+from consts import *
+
 import sys
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtCore import QXmlStreamReader, pyqtSignal, QObject
+
 from functools import partial
 
 from rtmidi import MidiIn as rtMidiIn
 
-from consts import *
+from phue import Bridge
 
-import faulthandler; faulthandler.enable()
+#import faulthandler; faulthandler.enable()
+
+# Philips Hue Inegration Parameters
+PHUE_BRIDGE_IP = "192.168.2.44"
+PHUE_LIGHT_1 = "Hue color lamp 1"
+PHUE_LIGHT_2 = "Hue color lamp 2"
+PHUE_LIGHT_3 = "Hue Downlight 1"
+PHUE_LIGHT_4 = "Hue color downlight 1"
 
 class SVG:
 	def __init__(self, code, inverted=False):
@@ -135,14 +145,14 @@ class QMidiListener(QObject):
 	
 	_midiStream = pyqtSignal(tuple, name="midiStream")
 
-	def __init__(self, QMidiStatus=None):
+	def __init__(self, statusOut=None):
 		super(QMidiListener, self).__init__()
 		self.connected = False
 		self.processor = None
 
 		# Pass along an class to act as an indicator
 		# In this case it's text line edit screen
-		self.status = QMidiStatus
+		self.status = statusOut
 
 		# Interface with the MIDI library
 		# Attempt to connect
@@ -211,13 +221,194 @@ class QMidiListener(QObject):
 		else:
 			self.connectMidi()
 
+class PhilipsHueController(Bridge):
+	def __init__(self, ip, statusOut):
+		super().__init__(ip)
+		self.connect()
+		self.status = statusOut
+
+		# Which light is selected to control - 0 signifies all lights
+		self.selected = 0
+
+		# IDs of the four lights to control
+		self.l1 = -1
+		self.l2 = -1
+		self.l3 = -1
+		self.l4 = -1
+
+	def setLight(self, number, name):
+		# Assign the four lights by name, use name to get the light ID
+		if(number == 1):
+			self.l1 = int(self.get_light_id_by_name(name)) - 1
+		elif(number == 2):
+			self.l2 = int(self.get_light_id_by_name(name)) - 1
+		elif(number == 3):
+			self.l3 = int(self.get_light_id_by_name(name)) - 1
+		elif(number == 4):
+			self.l4 = int(self.get_light_id_by_name(name)) - 1
+
+	def incrementBrightness(self, light, positive, value=0x8):
+		brightness = self.lights[light].brightness
+		value = value * (1 if positive else -1)
+
+		# Don't adjust brightness if it's at the limit
+		# This helps reduce load on the PHue API  
+		if((brightness == 0 and not positive) or (brightness == 0xfe and positive)):
+			return
+		
+		# Cap the brightness within a valid range
+		if((brightness + value) > 0xff):
+			brightness = 0xfe
+		elif((brightness + value) < 0):
+			brightness = 0
+		else:
+			brightness = brightness + value
+
+		self.lights[light].brightness = brightness
+
+		return
+
+	def incrementHue(self, light, positive, value=0x1fe):
+		hue = self.lights[light].hue
+		value = value * (1 if positive else -1)
+
+		# Restart the hue value if you reach the limit
+		if((hue + value) > 0xffff):
+			hue = 0
+		elif((hue + value) < 0):
+			hue = 0xfffe
+		else:
+			hue = hue + value
+
+		self.lights[light].hue = hue
+
+	def incrementSaturation(self, light, positive, value=0x8):
+		saturation = self.lights[light].saturation
+		value = value * (1 if positive else -1)
+
+		# Don't adjust saturation if it's at the limit
+		# This helps reduce load on the PHue API  
+		if((saturation == 0 and not positive) or (saturation == 0xfe and positive)):
+			return
+		
+		# Cap the saturation within a valid range
+		if((saturation + value) > 0xff):
+			saturation = 0xfe
+		elif((saturation + value) < 0):
+			saturation = 0
+		else:
+			saturation = saturation + value
+
+		self.lights[light].saturation = saturation
+
+		return
+
+	def incrementTemp(self, light, positive, value=0x96):
+		temp = self.lights[light].colortemp_k
+		value = value * (1 if positive else -1)
+
+		# Restart the temp value if you reach the limit
+		if((temp + value) > 0x1964):
+			temp = 2000
+		elif((temp + value) < 2000):
+			temp = 0x1964
+		else:
+			temp = temp + value
+
+		self.lights[light].colortemp_k = temp
+
+	def processCommand(self, mode, button, value):
+		# Pass in a button and value, do some Philips Hue action as a result.
+		if(not mode == 0xb0):
+			return
+
+		# Select which light to control
+		if(button == OP1_MODE_2_BUTTON and value == 0x0):
+			self.selected = 0
+		elif(button == OP1_T1_BUTTON and value == 0x0):
+			self.selected = 0 if (self.selected == 1) else 1
+		elif(button == OP1_T2_BUTTON and value == 0x0):
+			self.selected = 0 if (self.selected == 2) else 2
+		elif(button == OP1_T3_BUTTON and value == 0x0):
+			self.selected = 0 if (self.selected == 3) else 3
+		elif(button == OP1_T4_BUTTON and value == 0x0):
+			self.selected = 0 if (self.selected == 4) else 4
+
+		# Control all lights
+		if(self.selected == 0):
+
+			# Encoder click to toggle light on/off
+			if(button == OP1_ENCODER_BUTTON_1 and value == 0x0):
+				self.lights[self.l1].on = not self.lights[self.l1].on
+				self.status.append("Light %d %s" % (1, "ON" if self.lights[self.l1].on else "OFF"))
+			elif(button == OP1_ENCODER_BUTTON_2 and value == 0x0):
+				self.lights[self.l2].on = not self.lights[self.l2].on
+				self.status.append("Light %d %s" % (2, "ON" if self.lights[self.l2].on else "OFF"))
+			elif(button == OP1_ENCODER_BUTTON_3 and value == 0x0):
+				self.lights[self.l3].on = not self.lights[self.l3].on
+				self.status.append("Light %d %s" % (3, "ON" if self.lights[self.l3].on else "OFF"))
+			elif(button == OP1_ENCODER_BUTTON_4 and value == 0x0):
+				self.lights[self.l4].on = not self.lights[self.l4].on
+				self.status.append("Light %d %s" % (4, "ON" if self.lights[self.l4].on else "OFF"))
+
+			# Encoder turn controls brightness on a light
+			elif(button == OP1_ENCODER_1):
+				self.incrementBrightness(self.l1, 1 if (value == 0x1) else 0x0)
+			elif(button == OP1_ENCODER_2):
+				self.incrementBrightness(self.l2, 1 if (value == 0x1) else 0x0)
+			elif(button == OP1_ENCODER_3):
+				self.incrementBrightness(self.l3, 1 if (value == 0x1) else 0x0)
+			elif(button == OP1_ENCODER_4):
+				self.incrementBrightness(self.l4, 1 if (value == 0x1) else 0x0)
+
+		else:
+			# Individual light control
+			light = self.selected-1
+
+			# Toggle light on/off
+			if(button == OP1_ENCODER_BUTTON_1 and value == 0x0):
+				self.lights[light].on = not self.lights[light].on
+				self.status.append("Light %d %s" % (self.selected, "ON" if self.lights[light].on else "OFF"))
+
+			
+			# Reset hue, saturation, temperature
+			elif(button == OP1_ENCODER_BUTTON_2 and value == 0x0):
+				self.lights[light].hue = 0xc000
+			elif(button == OP1_ENCODER_BUTTON_3 and value == 0x0):
+				self.lights[light].saturation = 0xd7
+			elif(button == OP1_ENCODER_BUTTON_4 and value == 0x0):
+				self.lights[light].colortemp_k = 0xaac
+
+			# Encoder controls brightness, hue, saturation, temperature
+			elif(button == OP1_ENCODER_1):
+				self.incrementBrightness(light, 1 if (value == 0x1) else 0x0)
+			elif(button == OP1_ENCODER_2):
+				self.incrementHue(light, 0x1 if (value == 0x1) else 0x0)
+			elif(button == OP1_ENCODER_3):
+				self.incrementSaturation(light, 1 if (value == 0x1) else 0x0)
+			elif(button == OP1_ENCODER_4):
+				self.incrementTemp(light, 0x1 if (value == 0x1) else 0x0)
+		
+		return
+
 class MainWindow(QMainWindow):
 	def __init__(self):
 		super().__init__()
 		self.nightMode = 1
+		self.mode = OP1_MODE_2_BUTTON
 		self.initUI()
+
+		# Initialize midi component
 		self.midi = QMidiListener(self.io["SCREEN"])
 		self.midi._midiStream.connect(self.midiEventHandler)
+
+		# Initialize Phiilips Hue component
+		self.pHue = PhilipsHueController(PHUE_BRIDGE_IP, self.io["SCREEN"])
+		self.pHue.setLight(1, PHUE_LIGHT_1)
+		self.pHue.setLight(2, PHUE_LIGHT_2)
+		self.pHue.setLight(3, PHUE_LIGHT_3)
+		self.pHue.setLight(4, PHUE_LIGHT_4)
+
 		self.show()
 
 	def initUI(self):
@@ -442,8 +633,11 @@ class MainWindow(QMainWindow):
 		if(event == "VOLUME"):
 			self.nightMode = not self.nightMode
 			self.renderOP1()
-		if(event == "SPEAKER"):
+		elif(event == "SPEAKER"):
 			self.midi.toggle()
+		elif(event == OP1_ENCODER_1):
+			#QKeyEvent()
+			pass
 
 	def closeEvent(self, event=None):
 		try:
@@ -457,17 +651,34 @@ class MainWindow(QMainWindow):
 		mode, button, value = data[0]
 
 		# Encoder turn
-		if(mode == 0xb0 and button >= 0x1 and  button <= 0x4):			
+		if(mode == 0xb0 and button >= OP1_ENCODER_1 and  button <= OP1_ENCODER_4):			
 			if(value == 0x1):
 				self.io[button].rotate(10)
 			elif(value == 0x7f):
 				self.io[button].rotate(-10)
 		# If it's an encoder press
-		elif(mode == 0xb0 and button >= 0x40 and  button <= 0x43):
+		elif(mode == 0xb0 and button >= OP1_ENCODER_BUTTON_1 and  button <= OP1_ENCODER_BUTTON_4):
 			self.io[button-0x3F].toggleState()
 		# Button press
 		elif(mode == 0xb0):
 			self.io[button].toggleState()
+
+			if(button == OP1_MODE_1_BUTTON and value == 0x0):
+				self.io["SCREEN"].append("Mode 1")
+				self.mode = OP1_MODE_1_BUTTON
+			elif(button == OP1_MODE_2_BUTTON and value == 0x0):
+				self.io["SCREEN"].append("Mode 2")
+				self.mode = OP1_MODE_2_BUTTON
+			elif(button == OP1_MODE_3_BUTTON and value == 0x0):
+				self.io["SCREEN"].append("Mode 3")
+				self.mode = OP1_MODE_3_BUTTON
+			elif(button == OP1_MODE_4_BUTTON and value == 0x0):
+				self.io["SCREEN"].append("Mode 4")
+				self.mode = OP1_MODE_4_BUTTON
+
+		if(self.mode == OP1_MODE_2_BUTTON):
+			self.pHue.processCommand(mode, button, value)
+
 		# Keyboard key press
 		elif(mode == 0x90 or mode == 0x80):
 			self.io[button].toggleState()
