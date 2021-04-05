@@ -1,5 +1,6 @@
 from consts import *
 
+import os
 import sys
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from PyQt5.QtWidgets import *
@@ -16,11 +17,38 @@ from phue import Bridge
 #import faulthandler; faulthandler.enable()
 
 # Philips Hue Inegration Parameters
-PHUE_BRIDGE_IP = "192.168.2.44"
-PHUE_LIGHT_1 = "Hue color lamp 3"
+PHUE_BRIDGE_IP = "192.168.2.29"
+PHUE_LIGHT_1 = "Hue color lamp 1"
 PHUE_LIGHT_2 = "Hue color lamp 2"
 PHUE_LIGHT_3 = "Hue Downlight 1"
 PHUE_LIGHT_4 = "Hue color downlight 1"
+
+class MacOSKeys():
+	def __init__(self):
+		pass
+
+	def send(self, button, value=127):
+		if(value is not 0):
+			return
+
+		#osascript -e 'tell application "System Events" to keystroke "m" using {command down}' 
+		keymapCmd =  {
+			OP1_MICRO: """osascript -e 'tell application "System Events" to key code 111'""", # F12
+			OP1_PLAY_BUTTON: """osascript -e 'tell application "System Events" to play'""", # Media Play
+			-1: ""
+		}
+
+		try:
+			keymapCmd[button]
+		except KeyError:
+			print("error key %s" % button)
+			return
+
+		print(keymapCmd.get(button, -1))
+		os.system(keymapCmd.get(button, -1))
+
+
+
 
 class SVG:
 	def __init__(self, code, inverted=False):
@@ -243,8 +271,8 @@ class PhilipsHueController(Bridge):
 
 		# Restart the temp value if you reach the limit
 		if((temp + value) > 0x1964):
-			temp = 2000
-		elif((temp + value) < 2000):
+			temp = 0
+		elif((temp + value) < 0):
 			temp = 0x1964
 		else:
 			temp = temp + value
@@ -306,8 +334,6 @@ class PhilipsHueController(Bridge):
 			elif(self.selected == 4):
 				light = self.l4
 
-			print(self.selected, light, self.lights[light].name)
-
 			# Toggle light on/off
 			if(button == OP1_ENCODER_BUTTON_1 and value == 0x0):
 				self.lights[light].on = not self.lights[light].on
@@ -344,6 +370,9 @@ class MainWindow(QMainWindow):
 		# Initialize midi component
 		self.midi = QMidiListener(self.io["SCREEN"])
 		self.midi._midiStream.connect(self.midiEventHandler)
+
+		# Initialize keystroke sender for MacOS
+		self.keystroke = MacOSKeys()
 
 		# Initialize Phiilips Hue component
 		self.pHue = PhilipsHueController(PHUE_BRIDGE_IP, self.io["SCREEN"])
@@ -688,6 +717,9 @@ class MainWindow(QMainWindow):
 		# Keyboard key press
 		elif(mode == 0x90 or mode == 0x80):
 			self.io[button].toggleState()
+
+		if(self.mode == OP1_MODE_1_BUTTON):
+			self.keystroke.send(button, value)
 
 		if(self.mode == OP1_MODE_2_BUTTON):
 			self.pHue.processCommand(mode, button, value)
